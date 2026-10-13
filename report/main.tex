@@ -1,0 +1,636 @@
+%==============================================================================
+% Assignment 1 - Generative AI - technical report
+%
+% This is a SKELETON. Every \PLACEHOLDER command below marks something only you
+% can fill in: a measured number, an observation from your own runs, a decision
+% you made and can defend in the viva. Compile it once before you start writing
+% so you know the toolchain works:
+%
+%   pdflatex main && bibtex main && pdflatex main && pdflatex main
+%
+% Search for "PLACEHOLDER" before submitting - none should remain.
+%==============================================================================
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+% Makes unfinished text impossible to miss in the compiled PDF.
+\newcommand{\PLACEHOLDER}[1]{\textcolor{red}{\textbf{[FILL IN: #1]}}}
+
+\begin{document}
+
+\title{Universal, Hard-Routed and Soft Mixture-of-Experts Image Restoration\\
+with Style-Conditioned Face-to-Sketch Generation}
+
+\author{\IEEEauthorblockN{\PLACEHOLDER{your name}}
+\IEEEauthorblockA{\textit{\PLACEHOLDER{department}} \\
+\textit{\PLACEHOLDER{university}}\\
+\PLACEHOLDER{city, country} \\
+\PLACEHOLDER{email}}
+}
+
+\maketitle
+
+\begin{abstract}
+\PLACEHOLDER{150--200 words. State the problem, name the four systems, give
+your two or three headline numbers (for example the universal model's mean test
+PSNR, the classifier's macro F1, the SSIM gap between oracle and predicted
+routing, and the cGAN's test L1), and close with one sentence on the deployed
+application. Write this last, once the numbers exist.}
+\end{abstract}
+
+\begin{IEEEkeywords}
+denoising autoencoder, image restoration, mixture of experts, conditional GAN,
+hyperparameter optimisation, ONNX
+\end{IEEEkeywords}
+
+%==============================================================================
+\section{Introduction}
+%==============================================================================
+Image restoration systems are usually built for one degradation at a time. A
+denoiser trained on Gaussian noise does little for a blurred photograph, and an
+inpainting model has no reason to remove impulse noise. This report studies
+three ways of handling several degradations with one system, and a fourth,
+separate problem in paired image-to-image translation.
+
+\PLACEHOLDER{Two or three paragraphs: why multi-corruption restoration is hard,
+what a single shared representation has to trade off, and why routing (hard or
+soft) is an alternative worth measuring. Close with an explicit contribution
+list.}
+
+The contributions of this work are:
+\begin{itemize}
+  \item a single universal denoising autoencoder covering clean input,
+        impulse noise, Gaussian blur and rectangular occlusion;
+  \item a hard-routed system pairing a four-class corruption classifier with
+        three specialist autoencoders, measured under both oracle and predicted
+        routing;
+  \item a differentiable soft mixture-of-experts restorer, initialised from the
+        hard-routed components and fine-tuned jointly;
+  \item a style-conditioned conditional GAN for face-to-sketch generation; and
+  \item a containerised application exposing all four systems through one
+        browser interface backed by ONNX Runtime.
+\end{itemize}
+
+%==============================================================================
+\section{Related Work}
+%==============================================================================
+\textbf{Denoising autoencoders.} Vincent et al.~\cite{vincent2008} introduced
+corruption as a training signal rather than a nuisance, showing that
+reconstructing a clean target from a damaged input yields robust
+representations. \PLACEHOLDER{Add the two or three restoration papers you
+actually read and say what you took from each.}
+
+\textbf{Mixtures of experts.} Adaptive mixtures of local
+experts~\cite{jacobs1991} learn a gate that assigns inputs to specialised
+sub-networks. Sparsely-gated variants~\cite{shazeer2017} and Switch
+routing~\cite{fedus2022} scale the idea but reintroduce a discrete decision;
+soft mixtures~\cite{puigcerver2023} keep the combination differentiable.
+\PLACEHOLDER{Explain which of these informed your Task 3 design and how the
+load-balancing term in your loss relates to theirs.}
+
+\textbf{Paired image-to-image translation.} pix2pix~\cite{isola2017} combines a
+U-Net generator~\cite{ronneberger2015} with a PatchGAN discriminator and an
+$L_1$ reconstruction term; the conditional GAN formulation itself is due to
+Mirza and Osindero~\cite{mirza2014}. \PLACEHOLDER{Add the facial-sketch
+synthesis work you consulted and say how your style conditioning differs.}
+
+\textbf{Quality metrics.} SSIM~\cite{wang2004} is used throughout as a
+structural complement to pixel error. \PLACEHOLDER{If you considered LPIPS or
+FID and rejected them, say why here.}
+
+%==============================================================================
+\section{Dataset Preparation}
+%==============================================================================
+\subsection{Oxford-IIIT Pet (Tasks 1--3)}
+The official \texttt{trainval} collection~\cite{parkhi2012} is split 80/20 into
+training and validation partitions with \texttt{numpy.random.RandomState(42)}.
+The official test collection is untouched until final evaluation. All images
+are converted to RGB and resized to $128\times128$. The identical split is
+reused by Tasks 1, 2 and 3.
+
+Sizes: \PLACEHOLDER{train / validation / test image counts from your run}.
+
+\subsection{Corruption Model}
+Corruptions are generated inside the data loader, so an image is damaged
+differently every time it is read and no corrupted copies are stored. Each
+training sample draws one of the four conditions in
+Table~\ref{tab:corruptions} with equal probability, and the drawn class is the
+label used later to train the classifier and the gate.
+
+\begin{table}[t]
+\caption{Corruption configuration}
+\label{tab:corruptions}
+\centering
+\begin{tabular}{@{}lp{5.4cm}@{}}
+\toprule
+\textbf{Condition} & \textbf{Training configuration} \\
+\midrule
+Clean & Image passed through unchanged. \\
+Salt \& pepper & $p \sim \mathcal{U}(0.02, 0.15)$; selected pixels set to
+  black or white with equal probability. \\
+Gaussian blur & kernel $\in \{3,5,7\}$, $\sigma \sim \mathcal{U}(0.5, 2.5)$. \\
+Occlusion & 1--3 black rectangles jointly covering 10--35\% of the area, placed
+  at random. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Validation and test corruptions are deterministic. A manifest generated once
+stores the corruption type, severity, blur settings, rectangle coordinates and
+seed for every entry, so every evaluation in this report runs on byte-identical
+inputs. Test severities are fixed at $p \in \{0.03, 0.08, 0.15\}$ for impulse
+noise, $(k,\sigma) \in \{(3,0.7),(5,1.5),(7,2.5)\}$ for blur, and nominal
+coverages of 10\%, 20\% and 35\% using one, two and three rectangles.
+
+Because rectangles may overlap, realised occlusion coverage is slightly below
+the nominal target; the manifest records the measured value. Mean realised
+coverage: \PLACEHOLDER{report the three measured values from
+\texttt{test\_manifest.json}}.
+
+\subsection{FS2K (Task 4)}
+FS2K~\cite{fan2022} provides 2{,}104 photograph--sketch pairs in three sketch
+styles. The official training portion is split 85/15 with seed 42, stratified by
+style; the official test portion is reserved. Both images of a pair receive
+\emph{identical} spatial augmentation, since independent transforms would
+destroy the pixel correspondence the $L_1$ term depends on.
+
+Per-style counts: \PLACEHOLDER{train / validation / test counts per style}.
+
+%==============================================================================
+\section{Task 1: Universal Denoising Autoencoder}
+%==============================================================================
+\subsection{Architecture}
+The encoder halves the spatial resolution four times while doubling channel
+width, producing a latent tensor of $d \times 8 \times 8$; the decoder mirrors
+it with nearest-neighbour upsampling followed by convolution, avoiding the
+checkerboard artefacts of transposed convolutions~\cite{odena2016}. With the
+selected $d$ the compression ratio is \PLACEHOLDER{ratio reported by
+\texttt{compression\_ratio()}}, so the bottleneck is genuine rather than a wide
+identity path.
+
+\PLACEHOLDER{If you enabled the coarse skip connection, justify it here with a
+measured comparison: PSNR/SSIM with and without, and what the error maps show.
+If you left it off, say that and give the reason.}
+
+\begin{figure}[t]
+\centering
+% \includegraphics[width=\columnwidth]{figures/task1_architecture.pdf}
+\caption{Universal autoencoder architecture. \PLACEHOLDER{draw this}}
+\label{fig:task1arch}
+\end{figure}
+
+\subsection{Loss}
+Training minimises
+\begin{equation}
+\mathcal{L}_{\text{rec}} = \alpha \mathcal{L}_{1}(x, \hat{x})
+  + (1-\alpha)\bigl(1 - \mathrm{SSIM}(x, \hat{x})\bigr),
+\end{equation}
+where $x$ is the clean target and $\hat{x}=D(E(\tilde{x}))$ the reconstruction
+of the corrupted input $\tilde{x}$. SSIM uses an $11\times11$ Gaussian window
+with $\sigma=1.5$ and the standard stabilising
+constants~\cite{wang2004}. Rather than accepting $\alpha=0.8$, the value is
+selected by the Optuna study; the selected value is \PLACEHOLDER{$\alpha$}.
+
+\subsection{Hyperparameter Optimisation}
+\begin{table}[t]
+\caption{Task 1 Optuna search space and selected values}
+\label{tab:task1optuna}
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Parameter} & \textbf{Range} & \textbf{Selected} \\
+\midrule
+Learning rate & $[10^{-4}, 5\times10^{-3}]$ log & \PLACEHOLDER{} \\
+Batch size & $\{16,32,64,128\}$ & \PLACEHOLDER{} \\
+Bottleneck dimension & $\{32,64,128,256\}$ & \PLACEHOLDER{} \\
+Base channels & $\{16,32,48,64\}$ & \PLACEHOLDER{} \\
+Dropout & $[0.0, 0.4]$ & \PLACEHOLDER{} \\
+Loss weight $\alpha$ & $[0.3, 0.95]$ & \PLACEHOLDER{} \\
+Weight decay & $[10^{-6}, 10^{-3}]$ log & \PLACEHOLDER{} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The objective maximises $\mathrm{SSIM} + \mathrm{PSNR}/50$ on the validation
+manifest, a single scalar that refuses configurations which win on pixel error
+by over-smoothing. \PLACEHOLDER{Report trials completed, trials pruned, best
+trial number and value, and which parameters mattered according to the
+importance plot.}
+
+\subsection{Results}
+\begin{table}[t]
+\caption{Task 1 test performance by corruption and severity}
+\label{tab:task1results}
+\centering
+\begin{tabular}{@{}llcc@{}}
+\toprule
+\textbf{Condition} & \textbf{Severity} & \textbf{PSNR (dB)} & \textbf{SSIM} \\
+\midrule
+Clean & --- & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+\midrule
+\multirow{3}{*}{Salt \& pepper} & low & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+ & medium & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+ & high & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+\midrule
+\multirow{3}{*}{Blur} & low & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+ & medium & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+ & high & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+\midrule
+\multirow{3}{*}{Occlusion} & low & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+ & medium & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+ & high & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\PLACEHOLDER{Interpret the table. Which corruption is hardest and why? A useful
+observation is that impulse noise is locally recoverable while occlusion
+requires the decoder to hallucinate content it never saw, so SSIM degrades much
+faster with occlusion severity than with noise severity --- but only claim this
+if your numbers show it.}
+
+Figure~\ref{fig:task1samples} shows twelve representative reconstructions with
+their absolute error maps.
+
+\begin{figure}[t]
+\centering
+% \includegraphics[width=\columnwidth]{figures/task1_representative.png}
+\caption{Clean target, corrupted input, reconstruction and absolute error for
+twelve representative test images.}
+\label{fig:task1samples}
+\end{figure}
+
+\subsubsection{Failure cases}
+\PLACEHOLDER{Discuss four specific failures from
+\texttt{task1\_failure\_cases.json}. For each: what the input was, what the
+model produced, and the mechanism you think is responsible. Generic statements
+such as ``the model struggled'' are not sufficient --- point at the error map
+and say what it shows.}
+
+%==============================================================================
+\section{Task 2: Classification and Hard-Routed Specialists}
+%==============================================================================
+\subsection{Corruption Classifier}
+The classifier predicts $p = f(\tilde{x}) = [p_{\text{clean}}, p_{\text{salt}},
+p_{\text{blur}}, p_{\text{occ}}]$ and is trained with multiclass cross-entropy
+on class-balanced batches, obtained by indexing the dataset as (image,
+corruption) pairs so that every image appears once per class in an epoch.
+
+\begin{table}[t]
+\caption{Classifier performance on the test manifest}
+\label{tab:task2cls}
+\centering
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} \\
+\midrule
+Clean & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+Salt \& pepper & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+Blur & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+Occlusion & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+\midrule
+Macro average & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+% \includegraphics[width=0.85\columnwidth]{figures/task2_confusion_matrix.png}
+\caption{Normalised four-class confusion matrix.}
+\label{fig:task2cm}
+\end{figure}
+
+\PLACEHOLDER{Read the confusion matrix out loud in prose. Which pair is
+confused, at which severity, and why? Mild blur against clean, and very light
+impulse noise against clean, are the plausible candidates --- check whether your
+matrix agrees before asserting it.}
+
+\subsection{Specialists and Routing}
+Three specialists are trained, each on one corruption, sharing an architecture
+found by a single Optuna study but with independently trained weights. At
+inference the predicted class selects the branch, and a clean prediction
+bypasses restoration entirely:
+\begin{equation}
+\hat{x} = \begin{cases}
+\tilde{x} & c = \text{clean}\\
+E_{\text{salt}}(\tilde{x}) & c = \text{salt}\\
+E_{\text{blur}}(\tilde{x}) & c = \text{blur}\\
+E_{\text{occ}}(\tilde{x}) & c = \text{occlusion}
+\end{cases}
+\end{equation}
+
+\begin{table}[t]
+\caption{Oracle versus predicted routing}
+\label{tab:task2routing}
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\multirow{2}{*}{\textbf{Condition}} & \multicolumn{2}{c}{\textbf{Oracle}} &
+\multicolumn{2}{c}{\textbf{Predicted}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+ & PSNR & SSIM & PSNR & SSIM \\
+\midrule
+Clean & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+Salt \& pepper & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+Blur & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+Occlusion & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+\midrule
+Overall & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The oracle column isolates specialist quality; the predicted column is the
+operational system. The gap between them is the price of classifier error.
+\PLACEHOLDER{Quantify that gap and then discuss the specific misrouting cases
+in \texttt{task2\_test\_metrics.json}: which misclassifications were harmless
+(two experts that do similar things) and which were destructive (sending an
+occluded image to the deblurring expert)?}
+
+\PLACEHOLDER{Compare Task 2 against Task 1 directly. Did specialisation beat
+the universal model, and on which corruptions? If the universal model won
+anywhere, say so and explain it rather than hiding it.}
+
+%==============================================================================
+\section{Task 3: Soft Mixture of Experts}
+%==============================================================================
+\subsection{Formulation}
+The gate produces continuous weights over four branches, the first being an
+identity path for clean input:
+\begin{equation}
+w = \mathrm{softmax}\!\left(\frac{g(\tilde{x})}{T}\right),\quad
+\hat{x} = w_0\tilde{x} + w_1 E_{\text{salt}}(\tilde{x})
+  + w_2 E_{\text{blur}}(\tilde{x}) + w_3 E_{\text{occ}}(\tilde{x}).
+\end{equation}
+Because the combination is differentiable, gate and experts train through the
+reconstruction error. The gate is initialised from the Task 2 classifier and
+the experts from the Task 2 specialists; a warm-up stage trains the gate alone
+with the experts frozen, after which everything is fine-tuned at a smaller
+learning rate.
+
+The joint objective is
+\begin{equation}
+\mathcal{L} = \lambda_1 \mathcal{L}_1 + \lambda_2 (1-\mathrm{SSIM})
+  + \lambda_3 \mathcal{L}_{\text{CE}} + \lambda_4 \mathcal{L}_{\text{balance}},
+\end{equation}
+with
+$\mathcal{L}_{\text{balance}} = \sum_{i=1}^{4} (\bar{w}_i - \tfrac{1}{4})^2$
+computed over class-balanced batches, where $\bar{w}_i$ is the mean weight of
+branch $i$. \PLACEHOLDER{Justify this regulariser against the entropy
+alternative. The uniform target is only correct because the batches are class
+balanced --- say so, and say what you would use instead if they were not.}
+
+\subsection{Routing Behaviour}
+\begin{table}[t]
+\caption{Mean routing weight by true corruption}
+\label{tab:task3routing}
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{True input} & \textbf{Identity} & \textbf{Salt} & \textbf{Blur} &
+\textbf{Occlusion} \\
+\midrule
+Clean & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+Salt \& pepper & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+Blur & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+Occlusion & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+% \includegraphics[width=0.9\columnwidth]{figures/task3_routing_heatmap.png}
+\caption{Routing weights by true corruption and severity.}
+\label{fig:task3heat}
+\end{figure}
+
+\PLACEHOLDER{Answer the three questions explicitly: (i) show an example where a
+single expert dominates; (ii) show an example where the weight is genuinely
+split, and say whether the blended output is better than either branch alone;
+(iii) state whether any expert became inactive or captured inputs unrelated to
+its specialisation. \texttt{task3\_test\_metrics.json} lists blended cases and
+flags inactive branches.}
+
+\PLACEHOLDER{Report the effect of temperature $T$. Small $T$ approaches hard
+routing, large $T$ spreads weight. Give the selected value and what the search
+showed about it.}
+
+\subsection{Cost}
+Soft routing evaluates every expert on every input, so inference cost is
+roughly three times the hard-routed system.
+\PLACEHOLDER{Give measured per-image inference times for Tasks 1, 2 and 3 from
+the application, and state whether the accuracy gain justifies the cost.}
+
+%==============================================================================
+\section{Task 4: Style-Conditioned Face-to-Sketch cGAN}
+%==============================================================================
+\subsection{Architecture}
+The generator is a U-Net with six downsampling and six upsampling stages; the
+discriminator is a PatchGAN classifying overlapping local
+regions~\cite{isola2017}. The style condition is an \texttt{nn.Embedding} over
+the three FS2K categories, broadcast across the spatial grid and concatenated
+to the generator input, and additionally projected into the bottleneck. The
+discriminator receives the same embedding, so a sketch paired with the wrong
+style condition is detectable as fake --- without this the generator is free to
+ignore the condition entirely.
+
+\subsection{Objective}
+\begin{equation}
+\mathcal{L}_G = \mathcal{L}_{\text{adv}}
+  + \lambda_{L1}\,\mathcal{L}_{1}\bigl(y, G(x, s)\bigr)
+\end{equation}
+Adversarial terms use binary cross-entropy with logits and one-sided label
+smoothing on the real target. The conventional $\lambda_{L1}=100$ is used as a
+starting point only; the selected value is \PLACEHOLDER{$\lambda_{L1}$}.
+
+\subsection{Results}
+\begin{table}[t]
+\caption{Task 4 test performance by style}
+\label{tab:task4}
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Style} & \textbf{$L_1$} & \textbf{SSIM} & \textbf{PSNR} & \textbf{n} \\
+\midrule
+Style 1 & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+Style 2 & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+Style 3 & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+Overall & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} & \PLACEHOLDER{} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+% \includegraphics[width=\columnwidth]{figures/task4_per_style.png}
+\caption{Photograph, ground-truth sketch and generated sketch for each style.}
+\label{fig:task4grid}
+\end{figure}
+
+\subsubsection{Does the condition do anything?}
+\texttt{evaluate\_cgan.py} generates the same photograph under all three
+conditions and reports the mean absolute difference between outputs.
+Measured differences: \PLACEHOLDER{values}.
+\PLACEHOLDER{If the differences are near zero the generator is ignoring the
+style embedding, which is the most common failure of this architecture. Report
+it honestly and explain what you tried.}
+
+\subsubsection{Training stability}
+\PLACEHOLDER{Discuss the four logged curves. A discriminator loss collapsing
+toward zero while the generator adversarial loss climbs indicates the
+discriminator has won; describe what you observed and any intervention
+(learning-rate ratio, label smoothing, fewer discriminator steps) you made.}
+
+\subsubsection{Failure cases}
+\PLACEHOLDER{Four specific failures: unusual poses, glasses, hair boundaries,
+lighting. Show them.}
+
+%==============================================================================
+\section{Application and Deployment}
+%==============================================================================
+\subsection{Interface Design}
+The layout was designed in Google Stitch before implementation.
+\PLACEHOLDER{Insert the Stitch screenshots and say what changed between the
+design and the built interface, and why.}
+
+\begin{figure}[t]
+\centering
+% \includegraphics[width=\columnwidth]{figures/stitch_design.png}
+\caption{Original Google Stitch design.}
+\label{fig:stitch}
+\end{figure}
+
+\subsection{Architecture}
+A React and Tailwind CSS frontend communicates with a FastAPI backend over five
+endpoints: health, universal restoration, hard routing, soft mixture and
+face-to-sketch. The backend validates the upload, resizes to $128\times128$,
+runs ONNX Runtime and returns the result with routing information and timing.
+Both services run as Docker containers started by one Compose command; nginx
+serves the built frontend and proxies \texttt{/api} to the backend, so the
+browser bundle contains no hard-coded backend address.
+
+\subsection{ONNX Export and Verification}
+All seven inference models are exported at opset 17. The Task 3 export contains
+the entire pipeline --- gate, temperature-scaled softmax, three experts and the
+weighted sum --- as a single graph, so the served model cannot drift from the
+trained one. Agreement with PyTorch was verified on random inputs; the largest
+observed deviation was \PLACEHOLDER{value} against a tolerance of $10^{-4}$.
+
+\begin{figure}[t]
+\centering
+% \includegraphics[width=\columnwidth]{figures/app_screenshots.png}
+\caption{The four workspaces.}
+\label{fig:app}
+\end{figure}
+
+%==============================================================================
+\section{Limitations}
+%==============================================================================
+\PLACEHOLDER{Be specific and honest. Candidates: single corruption per image at
+training time, so mixed degradations are out of distribution; fixed
+$128\times128$ resolution; the occlusion expert can only hallucinate plausible
+texture, not recover content; soft routing costs three expert evaluations per
+image; FS2K is small and demographically narrow, so the generator's behaviour
+on faces unlike the training distribution is unmeasured; CPU-only inference in
+the container.}
+
+%==============================================================================
+\section{Conclusion}
+%==============================================================================
+\PLACEHOLDER{Three or four sentences tying the measured results back to the
+question the assignment poses: when is one shared model enough, when does
+routing pay for itself, and what did the soft mixture buy over the hard one?}
+
+%==============================================================================
+\appendices
+\section{Repository and Demonstration}
+Source code: \url{PLACEHOLDER-github-url}\\
+Trained models: \url{PLACEHOLDER-release-or-lfs-url}\\
+Demonstration video: \url{PLACEHOLDER-youtube-url}
+
+\section{Use of AI Assistance}
+\PLACEHOLDER{Required appendix. For each tool, state what it was used for and
+how its output was tested or corrected. Be concrete --- name the files, name the
+bugs you found. For example: a coding assistant produced the initial data
+pipeline and training loops; the corruption statistics were verified against the
+specification with \texttt{scripts/smoke\_test.py}, which checks that the
+realised salt-and-pepper fraction matches the sampled probability and that
+occlusion coverage matches the nominal target; ONNX agreement with PyTorch was
+verified with \texttt{src/export/verify\_onnx.py}. List anything the assistant
+got wrong and how you fixed it --- that is the part the evaluator is looking
+for.}
+
+\begin{thebibliography}{00}
+\bibitem{vincent2008} P. Vincent, H. Larochelle, Y. Bengio, and P.-A. Manzagol,
+``Extracting and composing robust features with denoising autoencoders,'' in
+\emph{Proc. ICML}, 2008, pp. 1096--1103.
+
+\bibitem{wang2004} Z. Wang, A. C. Bovik, H. R. Sheikh, and E. P. Simoncelli,
+``Image quality assessment: From error visibility to structural similarity,''
+\emph{IEEE Trans. Image Process.}, vol. 13, no. 4, pp. 600--612, 2004.
+
+\bibitem{jacobs1991} R. A. Jacobs, M. I. Jordan, S. J. Nowlan, and G. E. Hinton,
+``Adaptive mixtures of local experts,'' \emph{Neural Computation}, vol. 3,
+no. 1, pp. 79--87, 1991.
+
+\bibitem{shazeer2017} N. Shazeer et al., ``Outrageously large neural networks:
+The sparsely-gated mixture-of-experts layer,'' in \emph{Proc. ICLR}, 2017.
+
+\bibitem{fedus2022} W. Fedus, B. Zoph, and N. Shazeer, ``Switch transformers:
+Scaling to trillion parameter models with simple and efficient sparsity,''
+\emph{J. Mach. Learn. Res.}, vol. 23, no. 120, pp. 1--39, 2022.
+
+\bibitem{puigcerver2023} J. Puigcerver, C. Riquelme, B. Mustafa, and N. Houlsby,
+``From sparse to soft mixtures of experts,'' \emph{arXiv:2308.00951}, 2023.
+
+\bibitem{isola2017} P. Isola, J.-Y. Zhu, T. Zhou, and A. A. Efros,
+``Image-to-image translation with conditional adversarial networks,'' in
+\emph{Proc. CVPR}, 2017, pp. 1125--1134.
+
+\bibitem{ronneberger2015} O. Ronneberger, P. Fischer, and T. Brox, ``U-Net:
+Convolutional networks for biomedical image segmentation,'' in \emph{Proc.
+MICCAI}, 2015, pp. 234--241.
+
+\bibitem{mirza2014} M. Mirza and S. Osindero, ``Conditional generative
+adversarial nets,'' \emph{arXiv:1411.1784}, 2014.
+
+\bibitem{goodfellow2014} I. Goodfellow et al., ``Generative adversarial nets,''
+in \emph{Proc. NeurIPS}, 2014, pp. 2672--2680.
+
+\bibitem{parkhi2012} O. M. Parkhi, A. Vedaldi, A. Zisserman, and C. V. Jawahar,
+``Cats and dogs,'' in \emph{Proc. CVPR}, 2012, pp. 3498--3505.
+
+\bibitem{fan2022} D.-P. Fan et al., ``Facial-sketch synthesis: A new
+challenge,'' \emph{Machine Intelligence Research}, vol. 19, no. 4,
+pp. 257--287, 2022.
+
+\bibitem{akiba2019} T. Akiba, S. Sano, T. Yanase, T. Ohta, and M. Koyama,
+``Optuna: A next-generation hyperparameter optimization framework,'' in
+\emph{Proc. KDD}, 2019, pp. 2623--2631.
+
+\bibitem{odena2016} A. Odena, V. Dumoulin, and C. Olah, ``Deconvolution and
+checkerboard artifacts,'' \emph{Distill}, 2016.
+
+\bibitem{kingma2015} D. P. Kingma and J. Ba, ``Adam: A method for stochastic
+optimization,'' in \emph{Proc. ICLR}, 2015.
+
+\bibitem{loshchilov2019} I. Loshchilov and F. Hutter, ``Decoupled weight decay
+regularization,'' in \emph{Proc. ICLR}, 2019.
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,18 @@
+# Training / evaluation environment (the containers use their own, smaller lists).
+# Install PyTorch first from https://pytorch.org for the right CUDA version, e.g.
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+torch>=2.2
+torchvision>=0.17
+
+numpy>=1.26,<2.0
+pillow>=10.2
+scikit-learn>=1.4
+matplotlib>=3.8
+tqdm>=4.66
+
+optuna>=3.6
+mlflow>=2.12
+wandb>=0.17
+
+onnx>=1.16
+onnxruntime>=1.18

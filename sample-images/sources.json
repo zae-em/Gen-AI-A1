@@ -1,0 +1,109 @@
+{
+  "source_repository": "https://github.com/AbdullahMasood73/genai-assignment-1",
+  "source_commit": "4e841d6f966dcfcc64cd04019619609c855df7fa",
+  "image_size": [
+    128,
+    128
+  ],
+  "images": [
+    {
+      "file": "pets/basset_hound_36.png",
+      "id": "basset_hound_36",
+      "dataset": "Oxford-IIIT Pet",
+      "split": "test",
+      "source_figure": "universal_representative_1.png",
+      "row": 0,
+      "column": "Clean target"
+    },
+    {
+      "file": "pets/saint_bernard_62.png",
+      "id": "saint_bernard_62",
+      "dataset": "Oxford-IIIT Pet",
+      "split": "test",
+      "source_figure": "universal_representative_1.png",
+      "row": 1,
+      "column": "Clean target"
+    },
+    {
+      "file": "pets/pomeranian_28.png",
+      "id": "pomeranian_28",
+      "dataset": "Oxford-IIIT Pet",
+      "split": "test",
+      "source_figure": "universal_representative_1.png",
+      "row": 2,
+      "column": "Clean target"
+    },
+    {
+      "file": "pets/havanese_34.png",
+      "id": "havanese_34",
+      "dataset": "Oxford-IIIT Pet",
+      "split": "test",
+      "source_figure": "universal_representative_1.png",
+      "row": 3,
+      "column": "Clean target"
+    },
+    {
+      "file": "pets/havanese_197.png",
+      "id": "havanese_197",
+      "dataset": "Oxford-IIIT Pet",
+      "split": "test",
+      "source_figure": "universal_representative_2.png",
+      "row": 0,
+      "column": "Clean target"
+    },
+    {
+      "file": "pets/shiba_inu_73.png",
+      "id": "shiba_inu_73",
+      "dataset": "Oxford-IIIT Pet",
+      "split": "test",
+      "source_figure": "universal_representative_2.png",
+      "row": 1,
+      "column": "Clean target"
+    },
+    {
+      "file": "faces/photo1_image0788.png",
+      "id": "photo1_image0788",
+      "dataset": "FS2K",
+      "split": "test",
+      "reference_style": 2,
+      "source_figure": "face_representative_1.png",
+      "row": 0,
+      "column": "Input photograph"
+    },
+    {
+      "file": "faces/photo1_image0789.png",
+      "id": "photo1_image0789",
+      "dataset": "FS2K",
+      "split": "test",
+      "reference_style": 2,
+      "source_figure": "face_representative_1.png",
+      "row": 1,
+      "column": "Input photograph"
+    },
+    {
+      "file": "faces/photo1_image1396.png",
+      "id": "photo1_image1396",
+      "dataset": "FS2K",
+      "split": "test",
+      "reference_style": 1,
+      "source_figure": "face_representative_2.png",
+      "row": 0,
+      "column": "Input photograph"
+    },
+    {
+      "file": "faces/photo1_image1107.png",
+      "id": "photo1_image1107",
+      "dataset": "FS2K",
+      "split": "test",
+      "reference_style": 3,
+      "source_figure": "face_representative_3.png",
+      "row": 0,
+      "column": "Input photograph"
+    }
+  ],
+  "extraction": "Original 128x128 dataset pixels cropped from lossless report figures; no model-generated outputs included.",
+  "datasets": {
+    "Oxford-IIIT Pet": "https://www.robots.ox.ac.uk/~vgg/data/pets/",
+    "FS2K": "https://github.com/DengPingFan/FS2K"
+  }
+}

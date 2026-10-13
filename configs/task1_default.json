@@ -1,0 +1,12 @@
+{
+  "base_channels": 32,
+  "latent_dim": 128,
+  "dropout": 0.1,
+  "depth": 4,
+  "image_size": 128,
+  "use_skip": false,
+  "lr": 0.002,
+  "batch_size": 64,
+  "alpha": 0.8,
+  "weight_decay": 1e-05
+}

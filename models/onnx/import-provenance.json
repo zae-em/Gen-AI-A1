@@ -1,0 +1,50 @@
+{
+  "repository": "https://github.com/AbdullahMasood73/genai-assignment-1",
+  "commit": "4e841d6f966dcfcc64cd04019619609c855df7fa",
+  "file_count": 472,
+  "models": {
+    "universal": {
+      "source": "universal.onnx",
+      "installed_as": "task1_universal_ae.onnx",
+      "sha256": "5ff00a312fa287cc31e8224ae10d0ce21d354afd826458a92e676962bfffa2c4",
+      "epoch": 22
+    },
+    "classifier": {
+      "source": "classifier.onnx",
+      "installed_as": "task2_classifier.onnx",
+      "sha256": "60ab0eb7cd25d29acf3a7d141023f98c84075916f5939735e26dfbfda55936e8",
+      "epoch": 10
+    },
+    "salt": {
+      "source": "salt.onnx",
+      "installed_as": "task2_specialist_salt_pepper.onnx",
+      "sha256": "63944a6f35884adf9cafd4ea179fedf75f1288a548726c5c535fe64863541bb0",
+      "epoch": 20
+    },
+    "blur": {
+      "source": "blur.onnx",
+      "installed_as": "task2_specialist_blur.onnx",
+      "sha256": "2afd9eaf8fa33fc2af99020f165c8e4211782144e634f3ea140f7f99ae8d7115",
+      "epoch": 18
+    },
+    "occlusion": {
+      "source": "occlusion.onnx",
+      "installed_as": "task2_specialist_occlusion.onnx",
+      "sha256": "6c3bf05fe695c13ffab3488ae200c314d325e9d4dc21a49655bc470889715725",
+      "epoch": 18
+    },
+    "soft": {
+      "source": "soft.onnx",
+      "installed_as": "task3_soft_moe.onnx",
+      "sha256": "c1560f5b8c4bb3210a20ae557eb488af7568618ffedc8a893865a17b1be740d2",
+      "epoch": 11
+    },
+    "gan": {
+      "source": "gan.onnx",
+      "installed_as": "task4_generator.onnx",
+      "sha256": "e6d55705563c05ff2ef55f320323737a3a4aadbd40f82600d087e64899699f02",
+      "epoch": 12
+    }
+  },
+  "note": "Original upstream report and experiment results are preserved in imports/genai-assignment-1."
+}

@@ -1,0 +1,12 @@
+{
+  "temperature": 1.0,
+  "l1_w": 0.8,
+  "ssim_w": 0.2,
+  "ce_w": 0.1,
+  "bal_w": 0.01,
+  "lr_warmup": 0.001,
+  "lr_joint": 0.0001,
+  "batch_size": 32,
+  "image_size": 128,
+  "weight_decay": 1e-05
+}

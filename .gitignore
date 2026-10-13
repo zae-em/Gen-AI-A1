@@ -1,0 +1,23 @@
+# datasets and weights are downloaded, never committed
+/data/*
+!/data/manifests/
+artifacts/
+models/onnx/*.onnx
+runs/
+mlruns/
+wandb/
+optuna/
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+node_modules/
+frontend/dist/
+**/dev.stdout.log
+**/dev.stderr.log
+
+.DS_Store
+.env

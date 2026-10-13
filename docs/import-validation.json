@@ -1,0 +1,167 @@
+{
+  "status": "passed",
+  "health": {
+    "status": "ok",
+    "models": {
+      "task1": true,
+      "classifier": true,
+      "specialist_salt_pepper": true,
+      "specialist_blur": true,
+      "specialist_occlusion": true,
+      "soft_moe": true,
+      "generator": true
+    },
+    "model_dir": "C:\\Users\\Hp\\Downloads\\restoration-bench\\genai-a1\\models\\onnx",
+    "corruptions": [
+      "clean",
+      "salt_pepper",
+      "blur",
+      "occlusion"
+    ],
+    "styles": [
+      "Style 1",
+      "Style 2",
+      "Style 3"
+    ],
+    "image_size": 128
+  },
+  "model_checks": [
+    {
+      "model": "task1",
+      "batches": [
+        1,
+        2
+      ],
+      "finite_outputs": true
+    },
+    {
+      "model": "classifier",
+      "batches": [
+        1,
+        2
+      ],
+      "finite_outputs": true
+    },
+    {
+      "model": "specialist_salt_pepper",
+      "batches": [
+        1,
+        2
+      ],
+      "finite_outputs": true
+    },
+    {
+      "model": "specialist_blur",
+      "batches": [
+        1,
+        2
+      ],
+      "finite_outputs": true
+    },
+    {
+      "model": "specialist_occlusion",
+      "batches": [
+        1,
+        2
+      ],
+      "finite_outputs": true
+    },
+    {
+      "model": "soft_moe",
+      "batches": [
+        1,
+        2
+      ],
+      "finite_outputs": true
+    },
+    {
+      "model": "generator",
+      "batches": [
+        1,
+        2
+      ],
+      "finite_outputs": true
+    }
+  ],
+  "requests": [
+    {
+      "endpoint": "universal",
+      "corruption": "none",
+      "status": 200
+    },
+    {
+      "endpoint": "universal",
+      "corruption": "salt_pepper",
+      "status": 200
+    },
+    {
+      "endpoint": "universal",
+      "corruption": "blur",
+      "status": 200
+    },
+    {
+      "endpoint": "universal",
+      "corruption": "occlusion",
+      "status": 200
+    },
+    {
+      "endpoint": "hard-routed",
+      "corruption": "none",
+      "status": 200
+    },
+    {
+      "endpoint": "hard-routed",
+      "corruption": "salt_pepper",
+      "status": 200
+    },
+    {
+      "endpoint": "hard-routed",
+      "corruption": "blur",
+      "status": 200
+    },
+    {
+      "endpoint": "hard-routed",
+      "corruption": "occlusion",
+      "status": 200
+    },
+    {
+      "endpoint": "soft-moe",
+      "corruption": "none",
+      "status": 200
+    },
+    {
+      "endpoint": "soft-moe",
+      "corruption": "salt_pepper",
+      "status": 200
+    },
+    {
+      "endpoint": "soft-moe",
+      "corruption": "blur",
+      "status": 200
+    },
+    {
+      "endpoint": "soft-moe",
+      "corruption": "occlusion",
+      "status": 200
+    },
+    {
+      "endpoint": "face-to-sketch",
+      "style": 0,
+      "status": 200,
+      "matches_direct_onnx": true
+    },
+    {
+      "endpoint": "face-to-sketch",
+      "style": 1,
+      "status": 200,
+      "matches_direct_onnx": true
+    },
+    {
+      "endpoint": "face-to-sketch",
+      "style": 2,
+      "status": 200,
+      "matches_direct_onnx": true
+    }
+  ],
+  "distinct_sketch_styles": true
+}
